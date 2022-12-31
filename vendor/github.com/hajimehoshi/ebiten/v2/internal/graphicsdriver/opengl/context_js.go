@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/opengl/gles"
 	"github.com/hajimehoshi/ebiten/v2/internal/jsutil"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
@@ -87,42 +87,75 @@ const (
 	dstColor         = operation(gles.DST_COLOR)
 )
 
-var (
-	isWebGL2Available = !forceWebGL1 && (js.Global().Get("WebGL2RenderingContext").Truthy() || js.Global().Get("go2cpp").Truthy())
+type webGLVersion int
+
+const (
+	webGLVersionUnknown webGLVersion = iota
+	webGLVersion1
+	webGLVersion2
 )
+
+var (
+	webGL2MightBeAvailable = !forceWebGL1 && (js.Global().Get("WebGL2RenderingContext").Truthy())
+)
+
+func uint8ArrayToSlice(value js.Value, length int) []byte {
+	if l := value.Get("byteLength").Int(); length > l {
+		length = l
+	}
+	s := make([]byte, length)
+	js.CopyBytesToGo(s, value)
+	return s
+}
 
 type contextImpl struct {
 	gl            *gl
+	canvas        js.Value
 	lastProgramID programID
+	webGLVersion  webGLVersion
 }
 
-func (c *context) initGL() {
+func (c *context) usesWebGL2() bool {
+	return c.webGLVersion == webGLVersion2
+}
+
+func (c *context) initGL() error {
+	c.webGLVersion = webGLVersionUnknown
+
 	var gl js.Value
 
-	// TODO: Define id?
 	if doc := js.Global().Get("document"); doc.Truthy() {
-		canvas := doc.Call("querySelector", "canvas")
+		canvas := c.canvas
 		attr := js.Global().Get("Object").New()
 		attr.Set("alpha", true)
 		attr.Set("premultipliedAlpha", true)
 		attr.Set("stencil", true)
 
-		if isWebGL2Available {
+		if webGL2MightBeAvailable {
 			gl = canvas.Call("getContext", "webgl2", attr)
-		} else {
+			if gl.Truthy() {
+				c.webGLVersion = webGLVersion2
+			}
+		}
+
+		// Even though WebGL2RenderingContext exists, getting a webgl2 context might fail (#1738).
+		if !gl.Truthy() {
 			gl = canvas.Call("getContext", "webgl", attr)
 			if !gl.Truthy() {
 				gl = canvas.Call("getContext", "experimental-webgl", attr)
-				if !gl.Truthy() {
-					panic("opengl: getContext failed")
-				}
+			}
+			if gl.Truthy() {
+				c.webGLVersion = webGLVersion1
 			}
 		}
-	} else if go2cpp := js.Global().Get("go2cpp"); go2cpp.Truthy() {
-		gl = go2cpp.Get("gl")
+
+		if !gl.Truthy() {
+			return fmt.Errorf("opengl: getContext failed")
+		}
 	}
 
-	c.gl = newGL(gl)
+	c.gl = c.newGL(gl)
+	return nil
 }
 
 func (c *context) reset() error {
@@ -131,27 +164,29 @@ func (c *context) reset() error {
 	c.lastFramebuffer = framebufferNative(js.Null())
 	c.lastViewportWidth = 0
 	c.lastViewportHeight = 0
-	c.lastCompositeMode = driver.CompositeModeUnknown
+	c.lastCompositeMode = graphicsdriver.CompositeModeUnknown
 
-	c.initGL()
+	if err := c.initGL(); err != nil {
+		return err
+	}
 
 	if c.gl.isContextLost.Invoke().Bool() {
-		return driver.GraphicsNotReady
+		return graphicsdriver.GraphicsNotReady
 	}
 	gl := c.gl
 	gl.enable.Invoke(gles.BLEND)
 	gl.enable.Invoke(gles.SCISSOR_TEST)
-	c.blendFunc(driver.CompositeModeSourceOver)
+	c.blendFunc(graphicsdriver.CompositeModeSourceOver)
 	f := gl.getParameter.Invoke(gles.FRAMEBUFFER_BINDING)
 	c.screenFramebuffer = framebufferNative(f)
 
-	if !isWebGL2Available {
+	if !c.usesWebGL2() {
 		gl.getExtension.Invoke("OES_standard_derivatives")
 	}
 	return nil
 }
 
-func (c *context) blendFunc(mode driver.CompositeMode) {
+func (c *context) blendFunc(mode graphicsdriver.CompositeMode) {
 	if c.lastCompositeMode == mode {
 		return
 	}
@@ -198,16 +233,15 @@ func (c *context) bindFramebufferImpl(f framebufferNative) {
 	gl.bindFramebuffer.Invoke(gles.FRAMEBUFFER, js.Value(f))
 }
 
-func (c *context) framebufferPixels(f *framebuffer, width, height int) []byte {
+func (c *context) framebufferPixels(buf []byte, f *framebuffer, width, height int) {
 	gl := c.gl
 
 	c.bindFramebuffer(f.native)
 
 	l := 4 * width * height
-	p := jsutil.TemporaryUint8Array(l, nil)
+	p := jsutil.TemporaryUint8ArrayFromUint8Slice(l, nil)
 	gl.readPixels.Invoke(0, 0, width, height, gles.RGBA, gles.UNSIGNED_BYTE, p)
-
-	return jsutil.Uint8ArrayToSlice(p, l)
+	copy(buf, uint8ArrayToSlice(p, l))
 }
 
 func (c *context) framebufferPixelsToBuffer(f *framebuffer, buffer buffer, width, height int) {
@@ -387,6 +421,8 @@ func (c *context) useProgram(p program) {
 }
 
 func (c *context) deleteProgram(p program) {
+	c.locationCache.deleteProgram(p)
+
 	gl := c.gl
 	if !gl.isProgram.Invoke(p.value).Bool() {
 		return
@@ -435,43 +471,43 @@ func (c *context) uniformFloats(p program, location string, v []float32, typ sha
 
 	switch base {
 	case shaderir.Float:
-		if isWebGL2Available {
+		if c.usesWebGL2() {
 			gl.uniform1fv.Invoke(js.Value(l), arr, 0, len(v))
 		} else {
 			gl.uniform1fv.Invoke(js.Value(l), arr.Call("subarray", 0, len(v)))
 		}
 	case shaderir.Vec2:
-		if isWebGL2Available {
+		if c.usesWebGL2() {
 			gl.uniform2fv.Invoke(js.Value(l), arr, 0, len(v))
 		} else {
 			gl.uniform2fv.Invoke(js.Value(l), arr.Call("subarray", 0, len(v)))
 		}
 	case shaderir.Vec3:
-		if isWebGL2Available {
+		if c.usesWebGL2() {
 			gl.uniform3fv.Invoke(js.Value(l), arr, 0, len(v))
 		} else {
 			gl.uniform3fv.Invoke(js.Value(l), arr.Call("subarray", 0, len(v)))
 		}
 	case shaderir.Vec4:
-		if isWebGL2Available {
+		if c.usesWebGL2() {
 			gl.uniform4fv.Invoke(js.Value(l), arr, 0, len(v))
 		} else {
 			gl.uniform4fv.Invoke(js.Value(l), arr.Call("subarray", 0, len(v)))
 		}
 	case shaderir.Mat2:
-		if isWebGL2Available {
+		if c.usesWebGL2() {
 			gl.uniformMatrix2fv.Invoke(js.Value(l), false, arr, 0, len(v))
 		} else {
 			gl.uniformMatrix2fv.Invoke(js.Value(l), false, arr.Call("subarray", 0, len(v)))
 		}
 	case shaderir.Mat3:
-		if isWebGL2Available {
+		if c.usesWebGL2() {
 			gl.uniformMatrix3fv.Invoke(js.Value(l), false, arr, 0, len(v))
 		} else {
 			gl.uniformMatrix3fv.Invoke(js.Value(l), false, arr.Call("subarray", 0, len(v)))
 		}
 	case shaderir.Mat4:
-		if isWebGL2Available {
+		if c.usesWebGL2() {
 			gl.uniformMatrix4fv.Invoke(js.Value(l), false, arr, 0, len(v))
 		} else {
 			gl.uniformMatrix4fv.Invoke(js.Value(l), false, arr.Call("subarray", 0, len(v)))
@@ -527,8 +563,8 @@ func (c *context) bindElementArrayBuffer(b buffer) {
 func (c *context) arrayBufferSubData(data []float32) {
 	gl := c.gl
 	l := len(data) * 4
-	arr := jsutil.TemporaryUint8Array(l, data)
-	if isWebGL2Available {
+	arr := jsutil.TemporaryUint8ArrayFromFloat32Slice(l, data)
+	if c.usesWebGL2() {
 		gl.bufferSubData.Invoke(gles.ARRAY_BUFFER, 0, arr, 0, l)
 	} else {
 		gl.bufferSubData.Invoke(gles.ARRAY_BUFFER, 0, arr.Call("subarray", 0, l))
@@ -538,8 +574,8 @@ func (c *context) arrayBufferSubData(data []float32) {
 func (c *context) elementArrayBufferSubData(data []uint16) {
 	gl := c.gl
 	l := len(data) * 2
-	arr := jsutil.TemporaryUint8Array(l, data)
-	if isWebGL2Available {
+	arr := jsutil.TemporaryUint8ArrayFromUint16Slice(l, data)
+	if c.usesWebGL2() {
 		gl.bufferSubData.Invoke(gles.ELEMENT_ARRAY_BUFFER, 0, arr, 0, l)
 	} else {
 		gl.bufferSubData.Invoke(gles.ELEMENT_ARRAY_BUFFER, 0, arr.Call("subarray", 0, l))
@@ -561,11 +597,6 @@ func (c *context) maxTextureSizeImpl() int {
 	return gl.getParameter.Invoke(gles.MAX_TEXTURE_SIZE).Int()
 }
 
-func (c *context) getShaderPrecisionFormatPrecision() int {
-	gl := c.gl
-	return gl.getShaderPrecisionFormat.Invoke(gles.FRAGMENT_SHADER, gles.HIGH_FLOAT).Get("precision").Int()
-}
-
 func (c *context) flush() {
 	gl := c.gl
 	gl.flush.Invoke()
@@ -580,12 +611,12 @@ func (c *context) canUsePBO() bool {
 	return false
 }
 
-func (c *context) texSubImage2D(t textureNative, args []*driver.ReplacePixelsArgs) {
+func (c *context) texSubImage2D(t textureNative, args []*graphicsdriver.WritePixelsArgs) {
 	c.bindTexture(t)
 	gl := c.gl
 	for _, a := range args {
-		arr := jsutil.TemporaryUint8Array(len(a.Pixels), a.Pixels)
-		if isWebGL2Available {
+		arr := jsutil.TemporaryUint8ArrayFromUint8Slice(len(a.Pixels), a.Pixels)
+		if c.usesWebGL2() {
 			// void texSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset,
 			//                    GLsizei width, GLsizei height,
 			//                    GLenum format, GLenum type, ArrayBufferView pixels, srcOffset);

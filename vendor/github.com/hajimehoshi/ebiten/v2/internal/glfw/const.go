@@ -22,19 +22,15 @@ import (
 )
 
 type (
-	Action           int
-	ErrorCode        int
-	GamepadAxis      int
-	GamepadButton    int
-	Hint             int
-	InputMode        int
-	Joystick         int
-	JoystickHatState int
-	Key              int
-	ModifierKey      int
-	MouseButton      int
-	PeripheralEvent  int
-	StandardCursor   int
+	Action          int
+	ErrorCode       int
+	Hint            int
+	InputMode       int
+	Key             int
+	ModifierKey     int
+	MouseButton     int
+	PeripheralEvent int
+	StandardCursor  int
 )
 
 const (
@@ -62,25 +58,7 @@ const (
 )
 
 const (
-	Joystick1  = Joystick(0)
-	Joystick2  = Joystick(1)
-	Joystick3  = Joystick(2)
-	Joystick4  = Joystick(3)
-	Joystick5  = Joystick(4)
-	Joystick6  = Joystick(5)
-	Joystick7  = Joystick(6)
-	Joystick8  = Joystick(7)
-	Joystick9  = Joystick(8)
-	Joystick10 = Joystick(9)
-	Joystick11 = Joystick(10)
-	Joystick12 = Joystick(11)
-	Joystick13 = Joystick(12)
-	Joystick14 = Joystick(13)
-	Joystick15 = Joystick(14)
-	Joystick16 = Joystick(15)
-)
-
-const (
+	AutoIconify            = Hint(0x00020006)
 	ClientAPI              = Hint(0x00022001)
 	ContextVersionMajor    = Hint(0x00022002)
 	ContextVersionMinor    = Hint(0x00022003)
@@ -156,43 +134,4 @@ const (
 	HandCursor      = StandardCursor(0x00036004)
 	HResizeCursor   = StandardCursor(0x00036005)
 	VResizeCursor   = StandardCursor(0x00036006)
-)
-
-const (
-	HatCentered  = JoystickHatState(0)
-	HatUp        = JoystickHatState(1)
-	HatRight     = JoystickHatState(2)
-	HatDown      = JoystickHatState(4)
-	HatLeft      = JoystickHatState(8)
-	HatRightUp   = HatRight | HatUp
-	HatRightDown = HatRight | HatDown
-	HatLeftUp    = HatLeft | HatUp
-	HatLeftDown  = HatLeft | HatDown
-)
-
-const (
-	AxisLeftX        = GamepadAxis(0)
-	AxisLeftY        = GamepadAxis(1)
-	AxisRightX       = GamepadAxis(2)
-	AxisRightY       = GamepadAxis(3)
-	AxisLeftTrigger  = GamepadAxis(4)
-	AxisRightTrigger = GamepadAxis(5)
-)
-
-const (
-	ButtonA           = GamepadButton(0)
-	ButtonB           = GamepadButton(1)
-	ButtonX           = GamepadButton(2)
-	ButtonY           = GamepadButton(3)
-	ButtonLeftBumper  = GamepadButton(4)
-	ButtonRightBumper = GamepadButton(5)
-	ButtonBack        = GamepadButton(6)
-	ButtonStart       = GamepadButton(7)
-	ButtonGuide       = GamepadButton(8)
-	ButtonLeftThumb   = GamepadButton(9)
-	ButtonRightThumb  = GamepadButton(10)
-	ButtonDpadUp      = GamepadButton(11)
-	ButtonDpadRight   = GamepadButton(12)
-	ButtonDpadDown    = GamepadButton(13)
-	ButtonDpadLeft    = GamepadButton(14)
 )

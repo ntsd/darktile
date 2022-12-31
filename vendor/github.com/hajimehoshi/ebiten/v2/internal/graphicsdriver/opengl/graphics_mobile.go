@@ -23,8 +23,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/opengl/gles"
 )
 
-func init() {
-	theGraphics.context.ctx = gles.DefaultContext{}
+func (g *Graphics) init() {
+	g.context.ctx = gles.DefaultContext{}
 }
 
 func (g *Graphics) SetGomobileGLContext(context gl.Context) {

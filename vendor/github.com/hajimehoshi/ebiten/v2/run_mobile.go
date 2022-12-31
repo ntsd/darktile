@@ -17,14 +17,17 @@
 
 package ebiten
 
+import (
+	"github.com/hajimehoshi/ebiten/v2/internal/ui"
+)
+
 // RunGameWithoutMainLoop runs the game, but doesn't call the loop on the main (UI) thread.
 // RunGameWithoutMainLoop returns immediately unlike Run.
 //
 // Ebiten users should NOT call RunGameWithoutMainLoop.
 // Instead, functions in github.com/hajimehoshi/ebiten/v2/mobile package calls this.
 //
-// TODO: Remove this. In order to remove this, the uiContext should be in another package.
+// TODO: Remove this. In order to remove this, the gameForUI should be in another package.
 func RunGameWithoutMainLoop(game Game) {
-	theUIContext.set(game)
-	uiDriver().RunWithoutMainLoop(theUIContext)
+	ui.RunWithoutMainLoop(newGameForUI(game))
 }

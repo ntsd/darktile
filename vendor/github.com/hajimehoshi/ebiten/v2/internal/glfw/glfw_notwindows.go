@@ -105,6 +105,10 @@ func (w *Window) Destroy() {
 	theWindows.remove(w.w)
 }
 
+func (w *Window) Focus() {
+	w.w.Focus()
+}
+
 func (w *Window) GetAttrib(attrib Hint) int {
 	return w.w.GetAttrib(glfw.Hint(attrib))
 }
@@ -141,6 +145,10 @@ func (w *Window) GetSize() (width, height int) {
 	return w.w.GetSize()
 }
 
+func (w *Window) Hide() {
+	w.w.Hide()
+}
+
 func (w *Window) Iconify() {
 	w.w.Iconify()
 }
@@ -162,7 +170,7 @@ func (w *Window) SetAttrib(attrib Hint, value int) {
 }
 
 func (w *Window) SetCharModsCallback(cbfun CharModsCallback) (previous CharModsCallback) {
-	w.w.SetCharModsCallback(charModsCallbacks[cbfun])
+	w.w.SetCharModsCallback(cbfun)
 	return ToCharModsCallback(nil) // TODO
 }
 
@@ -175,17 +183,17 @@ func (w *Window) SetCursor(cursor *Cursor) {
 }
 
 func (w *Window) SetCloseCallback(cbfun CloseCallback) (previous CloseCallback) {
-	w.w.SetCloseCallback(closeCallbacks[cbfun])
+	w.w.SetCloseCallback(cbfun)
 	return ToCloseCallback(nil) // TODO
 }
 
 func (w *Window) SetFramebufferSizeCallback(cbfun FramebufferSizeCallback) (previous FramebufferSizeCallback) {
-	w.w.SetFramebufferSizeCallback(framebufferSizeCallbacks[cbfun])
+	w.w.SetFramebufferSizeCallback(cbfun)
 	return ToFramebufferSizeCallback(nil) // TODO
 }
 
 func (w *Window) SetScrollCallback(cbfun ScrollCallback) (previous ScrollCallback) {
-	w.w.SetScrollCallback(scrollCallbacks[cbfun])
+	w.w.SetScrollCallback(cbfun)
 	return ToScrollCallback(nil) // TODO
 }
 
@@ -194,7 +202,7 @@ func (w *Window) SetShouldClose(value bool) {
 }
 
 func (w *Window) SetSizeCallback(cbfun SizeCallback) (previous SizeCallback) {
-	w.w.SetSizeCallback(sizeCallbacks[cbfun])
+	w.w.SetSizeCallback(cbfun)
 	prev := w.prevSizeCallback
 	w.prevSizeCallback = cbfun
 	return prev
@@ -202,6 +210,10 @@ func (w *Window) SetSizeCallback(cbfun SizeCallback) (previous SizeCallback) {
 
 func (w *Window) SetSizeLimits(minw, minh, maxw, maxh int) {
 	w.w.SetSizeLimits(minw, minh, maxw, maxh)
+}
+
+func (w *Window) SetAspectRatio(numer, denom int) {
+	w.w.SetAspectRatio(numer, denom)
 }
 
 func (w *Window) SetIcon(images []image.Image) {
@@ -261,47 +273,6 @@ func CreateWindow(width, height int, title string, monitor *Monitor, share *Wind
 	return theWindows.add(w), nil
 }
 
-func (j Joystick) GetGUID() string {
-	return glfw.Joystick(j).GetGUID()
-}
-
-func (j Joystick) GetName() string {
-	return glfw.Joystick(j).GetName()
-}
-
-func (j Joystick) GetAxes() []float32 {
-	return glfw.Joystick(j).GetAxes()
-}
-
-func (j Joystick) GetButtons() []Action {
-	var bs []Action
-	for _, b := range glfw.Joystick(j).GetButtons() {
-		bs = append(bs, Action(b))
-	}
-	return bs
-}
-
-func (j Joystick) GetHats() []JoystickHatState {
-	var hats []JoystickHatState
-	for _, s := range glfw.Joystick(j).GetHats() {
-		hats = append(hats, JoystickHatState(s))
-	}
-	return hats
-}
-
-func (j Joystick) GetGamepadState() *GamepadState {
-	s := glfw.Joystick(j).GetGamepadState()
-	if s == nil {
-		return nil
-	}
-	state := &GamepadState{}
-	for i, b := range s.Buttons {
-		state.Buttons[i] = Action(b)
-	}
-	copy(state.Axes[:], s.Axes[:])
-	return state
-}
-
 func GetMonitors() []*Monitor {
 	ms := []*Monitor{}
 	for _, m := range glfw.GetMonitors() {
@@ -326,10 +297,6 @@ func Init() error {
 	return glfw.Init()
 }
 
-func (j Joystick) Present() bool {
-	return glfw.Joystick(j).Present()
-}
-
 func PollEvents() {
 	glfw.PollEvents()
 }
@@ -338,18 +305,9 @@ func PostEmptyEvent() {
 	glfw.PostEmptyEvent()
 }
 
-func SetMonitorCallback(cbfun func(monitor *Monitor, event PeripheralEvent)) {
-	var gcb func(monitor *glfw.Monitor, event glfw.PeripheralEvent)
-	if cbfun != nil {
-		gcb = func(monitor *glfw.Monitor, event glfw.PeripheralEvent) {
-			var m *Monitor
-			if monitor != nil {
-				m = &Monitor{monitor}
-			}
-			cbfun(m, PeripheralEvent(event))
-		}
-	}
-	glfw.SetMonitorCallback(gcb)
+func SetMonitorCallback(cbfun MonitorCallback) MonitorCallback {
+	glfw.SetMonitorCallback(cbfun)
+	return ToMonitorCallback(nil)
 }
 
 func SwapInterval(interval int) {
@@ -360,12 +318,12 @@ func Terminate() {
 	glfw.Terminate()
 }
 
-func UpdateGamepadMappings(mapping string) bool {
-	return glfw.UpdateGamepadMappings(mapping)
-}
-
 func WaitEvents() {
 	glfw.WaitEvents()
+}
+
+func WaitEventsTimeout(timeout float64) {
+	glfw.WaitEventsTimeout(timeout)
 }
 
 func WindowHint(target Hint, hint int) {

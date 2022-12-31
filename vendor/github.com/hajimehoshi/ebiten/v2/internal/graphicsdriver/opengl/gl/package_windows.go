@@ -44,7 +44,6 @@ var (
 	gpGenFramebuffersEXT          uintptr
 	gpGenRenderbuffersEXT         uintptr
 	gpGenTextures                 uintptr
-	gpGetBufferSubData            uintptr
 	gpGetDoublei_v                uintptr
 	gpGetDoublei_vEXT             uintptr
 	gpGetError                    uintptr
@@ -142,7 +141,7 @@ func BufferSubData(target uint32, offset int, size int, data unsafe.Pointer) {
 
 func CheckFramebufferStatusEXT(target uint32) uint32 {
 	ret, _, _ := syscall.Syscall(gpCheckFramebufferStatusEXT, 1, uintptr(target), 0, 0)
-	return (uint32)(ret)
+	return uint32(ret)
 }
 
 func Clear(mask uint32) {
@@ -159,12 +158,12 @@ func CompileShader(shader uint32) {
 
 func CreateProgram() uint32 {
 	ret, _, _ := syscall.Syscall(gpCreateProgram, 0, 0, 0, 0)
-	return (uint32)(ret)
+	return uint32(ret)
 }
 
 func CreateShader(xtype uint32) uint32 {
 	ret, _, _ := syscall.Syscall(gpCreateShader, 1, uintptr(xtype), 0, 0)
-	return (uint32)(ret)
+	return uint32(ret)
 }
 
 func DeleteBuffers(n int32, buffers *uint32) {
@@ -239,10 +238,6 @@ func GenTextures(n int32, textures *uint32) {
 	syscall.Syscall(gpGenTextures, 2, uintptr(n), uintptr(unsafe.Pointer(textures)), 0)
 }
 
-func GetBufferSubData(target uint32, offset int, size int, data unsafe.Pointer) {
-	syscall.Syscall6(gpGetBufferSubData, 4, uintptr(target), uintptr(offset), uintptr(size), uintptr(data), 0, 0)
-}
-
 func GetDoublei_v(target uint32, index uint32, data *float64) {
 	syscall.Syscall(gpGetDoublei_v, 3, uintptr(target), uintptr(index), uintptr(unsafe.Pointer(data)))
 }
@@ -252,7 +247,7 @@ func GetDoublei_vEXT(pname uint32, index uint32, params *float64) {
 
 func GetError() uint32 {
 	ret, _, _ := syscall.Syscall(gpGetError, 0, 0, 0, 0)
-	return (uint32)(ret)
+	return uint32(ret)
 }
 func GetFloati_v(target uint32, index uint32, data *float32) {
 	syscall.Syscall(gpGetFloati_v, 3, uintptr(target), uintptr(index), uintptr(unsafe.Pointer(data)))
@@ -300,7 +295,7 @@ func GetTransformFeedbacki_v(xfb uint32, pname uint32, index uint32, param *int3
 
 func GetUniformLocation(program uint32, name *uint8) int32 {
 	ret, _, _ := syscall.Syscall(gpGetUniformLocation, 2, uintptr(program), uintptr(unsafe.Pointer(name)), 0)
-	return (int32)(ret)
+	return int32(ret)
 }
 
 func GetUnsignedBytei_vEXT(target uint32, index uint32, data *uint8) {
@@ -315,22 +310,22 @@ func GetVertexArrayPointeri_vEXT(vaobj uint32, index uint32, pname uint32, param
 
 func IsFramebufferEXT(framebuffer uint32) bool {
 	ret, _, _ := syscall.Syscall(gpIsFramebufferEXT, 1, uintptr(framebuffer), 0, 0)
-	return ret != 0
+	return byte(ret) != 0
 }
 
 func IsProgram(program uint32) bool {
 	ret, _, _ := syscall.Syscall(gpIsProgram, 1, uintptr(program), 0, 0)
-	return ret != 0
+	return byte(ret) != 0
 }
 
 func IsRenderbufferEXT(renderbuffer uint32) bool {
 	ret, _, _ := syscall.Syscall(gpIsRenderbufferEXT, 1, uintptr(renderbuffer), 0, 0)
-	return ret != 0
+	return byte(ret) != 0
 }
 
 func IsTexture(texture uint32) bool {
 	ret, _, _ := syscall.Syscall(gpIsTexture, 1, uintptr(texture), 0, 0)
-	return ret != 0
+	return byte(ret) != 0
 }
 
 func LinkProgram(program uint32) {
@@ -538,10 +533,6 @@ func InitWithProcAddrFunc(getProcAddr func(name string) uintptr) error {
 	gpGenTextures = getProcAddr("glGenTextures")
 	if gpGenTextures == 0 {
 		return errors.New("glGenTextures")
-	}
-	gpGetBufferSubData = getProcAddr("glGetBufferSubData")
-	if gpGetBufferSubData == 0 {
-		return errors.New("glGetBufferSubData")
 	}
 	gpGetDoublei_v = getProcAddr("glGetDoublei_v")
 	gpGetDoublei_vEXT = getProcAddr("glGetDoublei_vEXT")

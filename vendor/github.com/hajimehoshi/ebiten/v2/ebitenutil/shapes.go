@@ -20,6 +20,7 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 var (
@@ -29,14 +30,6 @@ var (
 
 func init() {
 	emptyImage.Fill(color.White)
-}
-
-func colorToScale(clr color.Color) (float64, float64, float64, float64) {
-	cr, cg, cb, ca := clr.RGBA()
-	if ca == 0 {
-		return 0, 0, 0, 0
-	}
-	return float64(cr) / float64(ca), float64(cg) / float64(ca), float64(cb) / float64(ca), float64(ca) / 0xffff
 }
 
 // DrawLine draws a line segment on the given destination dst.
@@ -49,7 +42,7 @@ func DrawLine(dst *ebiten.Image, x1, y1, x2, y2 float64, clr color.Color) {
 	op.GeoM.Scale(length, 1)
 	op.GeoM.Rotate(math.Atan2(y2-y1, x2-x1))
 	op.GeoM.Translate(x1, y1)
-	op.ColorM.Scale(colorToScale(clr))
+	op.ColorM.ScaleWithColor(clr)
 	// Filter must be 'nearest' filter (default).
 	// Linear filtering would make edges blurred.
 	dst.DrawImage(emptySubImage, op)
@@ -62,8 +55,29 @@ func DrawRect(dst *ebiten.Image, x, y, width, height float64, clr color.Color) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(width, height)
 	op.GeoM.Translate(x, y)
-	op.ColorM.Scale(colorToScale(clr))
+	op.ColorM.ScaleWithColor(clr)
 	// Filter must be 'nearest' filter (default).
 	// Linear filtering would make edges blurred.
 	dst.DrawImage(emptyImage.SubImage(image.Rect(1, 1, 2, 2)).(*ebiten.Image), op)
+}
+
+// DrawCircle draws a circle on given destination dst.
+//
+// DrawCircle is intended to be used mainly for debugging or prototyping puropose.
+func DrawCircle(dst *ebiten.Image, cx, cy, r float64, clr color.Color) {
+	var path vector.Path
+	rd, g, b, a := clr.RGBA()
+
+	path.Arc(float32(cx), float32(cy), float32(r), 0, 2*math.Pi, vector.Clockwise)
+
+	vertices, indices := path.AppendVerticesAndIndicesForFilling(nil, nil)
+	for i := range vertices {
+		vertices[i].SrcX = 1
+		vertices[i].SrcY = 1
+		vertices[i].ColorR = float32(rd) / 0xffff
+		vertices[i].ColorG = float32(g) / 0xffff
+		vertices[i].ColorB = float32(b) / 0xffff
+		vertices[i].ColorA = float32(a) / 0xffff
+	}
+	dst.DrawTriangles(vertices, indices, emptySubImage, nil)
 }

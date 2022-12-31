@@ -1,18 +1,18 @@
-# Ebiten (v2)
+# Ebitengine (v2)
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/hajimehoshi/ebiten/v2.svg)](https://pkg.go.dev/github.com/hajimehoshi/ebiten/v2)
 [![Build Status](https://github.com/hajimehoshi/ebiten/workflows/test/badge.svg)](https://github.com/hajimehoshi/ebiten/actions?query=workflow%3Atest)
-[![Go Report Card](https://goreportcard.com/badge/github.com/hajimehoshi/ebiten)](https://goreportcard.com/report/github.com/hajimehoshi/ebiten)
 
 **A dead simple 2D game library for Go**
 
-Ebiten is an open source game library for the Go programming language. Ebiten's simple API allows you to quickly and easily develop 2D games that can be deployed across multiple platforms.
+Ebitengine (formerly known as Ebiten) is an open source game library for the Go programming language. Ebitengine's simple API allows you to quickly and easily develop 2D games that can be deployed across multiple platforms.
 
 * [Website (ebiten.org)](https://ebiten.org)
 * [API Reference](https://pkg.go.dev/github.com/hajimehoshi/ebiten/v2)
 * [Cheat Sheet](https://ebiten.org/documents/cheatsheet.html)
+* [Awesome Ebitengine](https://github.com/sedyh/awesome-ebitengine)
 
-![Overview](https://ebiten.org/images/overview2.1.png)
+![Overview](https://ebiten.org/images/overview2.png)
 
 ## Platforms
 
@@ -23,9 +23,9 @@ Ebiten is an open source game library for the Go programming language. Ebiten's 
 * [Android](https://ebiten.org/documents/mobile.html)
 * [iOS](https://ebiten.org/documents/mobile.html)
 * [WebAssembly](https://ebiten.org/documents/webassembly.html)
-* Nintendo Switch™
+* Nintendo Switch™ (Native compiling!)
 
-Note: Gamepads and keyboards are not available on iOS.
+Note: External (bluetooth) keyboards are not available on iOS yet.
 
 For installation on desktops, see [the installation instruction](https://ebiten.org/documents/install.html).
 
@@ -46,14 +46,17 @@ For installation on desktops, see [the installation instruction](https://ebiten.
   * [inpututil](https://pkg.go.dev/github.com/hajimehoshi/ebiten/v2/inpututil)
   * [mobile](https://pkg.go.dev/github.com/hajimehoshi/ebiten/v2/mobile)
   * [text](https://pkg.go.dev/github.com/hajimehoshi/ebiten/v2/text)
+  * [vector](https://pkg.go.dev/github.com/hajimehoshi/ebiten/v2/vector)
 
 ## Community
 
 - [Discord](https://discord.gg/3tVdM5H8cC)
-- `#ebiten` channel in [Gophers Slack](https://blog.gopheracademy.com/gophers-slack-community/)
+- `#ebitengine` channel in [Gophers Slack](https://blog.gopheracademy.com/gophers-slack-community/)
 - [GitHub Discussion](https://github.com/hajimehoshi/ebiten/discussions)
 - [`r/ebiten` in Reddit](https://www.reddit.com/r/ebiten/)
 
 ## License
 
-Ebiten is licensed under Apache license version 2.0. See [LICENSE](LICENSE) file.
+Ebitengine is licensed under Apache license version 2.0. See [LICENSE](LICENSE) file.
+
+[The Ebitengine logo](https://ebiten.org/images/logo.png) by Hajime Hoshi is licensed under [the Creative Commons Attribution-NoDerivatives 4.0](https://creativecommons.org/licenses/by-nd/4.0/).

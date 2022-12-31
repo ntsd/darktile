@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/opengl/gles"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
 )
@@ -102,10 +102,10 @@ func (c *context) reset() error {
 	c.lastFramebuffer = invalidFramebuffer
 	c.lastViewportWidth = 0
 	c.lastViewportHeight = 0
-	c.lastCompositeMode = driver.CompositeModeUnknown
+	c.lastCompositeMode = graphicsdriver.CompositeModeUnknown
 	c.ctx.Enable(gles.BLEND)
 	c.ctx.Enable(gles.SCISSOR_TEST)
-	c.blendFunc(driver.CompositeModeSourceOver)
+	c.blendFunc(graphicsdriver.CompositeModeSourceOver)
 	f := make([]int32, 1)
 	c.ctx.GetIntegerv(f, gles.FRAMEBUFFER_BINDING)
 	c.screenFramebuffer = framebufferNative(f[0])
@@ -113,7 +113,7 @@ func (c *context) reset() error {
 	return nil
 }
 
-func (c *context) blendFunc(mode driver.CompositeMode) {
+func (c *context) blendFunc(mode graphicsdriver.CompositeMode) {
 	if c.lastCompositeMode == mode {
 		return
 	}
@@ -148,14 +148,12 @@ func (c *context) bindFramebufferImpl(f framebufferNative) {
 	c.ctx.BindFramebuffer(gles.FRAMEBUFFER, uint32(f))
 }
 
-func (c *context) framebufferPixels(f *framebuffer, width, height int) []byte {
+func (c *context) framebufferPixels(buf []byte, f *framebuffer, width, height int) {
 	c.ctx.Flush()
 
 	c.bindFramebuffer(f.native)
 
-	pixels := make([]byte, 4*width*height)
-	c.ctx.ReadPixels(pixels, 0, 0, int32(width), int32(height), gles.RGBA, gles.UNSIGNED_BYTE)
-	return pixels
+	c.ctx.ReadPixels(buf, 0, 0, int32(width), int32(height), gles.RGBA, gles.UNSIGNED_BYTE)
 }
 
 func (c *context) framebufferPixelsToBuffer(f *framebuffer, buffer buffer, width, height int) {
@@ -326,6 +324,8 @@ func (c *context) useProgram(p program) {
 }
 
 func (c *context) deleteProgram(p program) {
+	c.locationCache.deleteProgram(p)
+
 	if !c.ctx.IsProgram(uint32(p)) {
 		return
 	}
@@ -443,11 +443,6 @@ func (c *context) maxTextureSizeImpl() int {
 	return int(v[0])
 }
 
-func (c *context) getShaderPrecisionFormatPrecision() int {
-	_, _, p := c.ctx.GetShaderPrecisionFormat(gles.FRAGMENT_SHADER, gles.HIGH_FLOAT)
-	return p
-}
-
 func (c *context) flush() {
 	c.ctx.Flush()
 }
@@ -462,7 +457,7 @@ func (c *context) canUsePBO() bool {
 	return false
 }
 
-func (c *context) texSubImage2D(t textureNative, args []*driver.ReplacePixelsArgs) {
+func (c *context) texSubImage2D(t textureNative, args []*graphicsdriver.WritePixelsArgs) {
 	c.bindTexture(t)
 	for _, a := range args {
 		c.ctx.TexSubImage2D(gles.TEXTURE_2D, 0, int32(a.X), int32(a.Y), int32(a.Width), int32(a.Height), gles.RGBA, gles.UNSIGNED_BYTE, a.Pixels)

@@ -12,10 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build (darwin || freebsd || linux || windows) && !android && !ios
-// +build darwin freebsd linux windows
-// +build !android
-// +build !ios
+//go:build !android && !ios && !js
+// +build !android,!ios,!js
 
 package opengl
 
@@ -23,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/opengl/gl"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
 )
@@ -112,11 +110,11 @@ func (c *context) reset() error {
 	c.lastFramebuffer = invalidFramebuffer
 	c.lastViewportWidth = 0
 	c.lastViewportHeight = 0
-	c.lastCompositeMode = driver.CompositeModeUnknown
+	c.lastCompositeMode = graphicsdriver.CompositeModeUnknown
 	gl.Enable(gl.BLEND)
 	gl.Enable(gl.SCISSOR_TEST)
 
-	c.blendFunc(driver.CompositeModeSourceOver)
+	c.blendFunc(graphicsdriver.CompositeModeSourceOver)
 
 	f := int32(0)
 	gl.GetIntegerv(gl.FRAMEBUFFER_BINDING, &f)
@@ -124,7 +122,7 @@ func (c *context) reset() error {
 	return nil
 }
 
-func (c *context) blendFunc(mode driver.CompositeMode) {
+func (c *context) blendFunc(mode graphicsdriver.CompositeMode) {
 	if c.lastCompositeMode == mode {
 		return
 	}
@@ -164,12 +162,10 @@ func (c *context) bindFramebufferImpl(f framebufferNative) {
 	gl.BindFramebufferEXT(gl.FRAMEBUFFER, uint32(f))
 }
 
-func (c *context) framebufferPixels(f *framebuffer, width, height int) []byte {
+func (c *context) framebufferPixels(buf []byte, f *framebuffer, width, height int) {
 	gl.Flush()
 	c.bindFramebuffer(f.native)
-	pixels := make([]byte, 4*width*height)
-	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(pixels))
-	return pixels
+	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(buf))
 }
 
 func (c *context) framebufferPixelsToBuffer(f *framebuffer, buffer buffer, width, height int) {
@@ -238,9 +234,8 @@ func (c *context) deleteRenderbuffer(r renderbufferNative) {
 func (c *context) newFramebuffer(texture textureNative) (framebufferNative, error) {
 	var f uint32
 	gl.GenFramebuffersEXT(1, &f)
-	// TODO: Use gl.IsFramebuffer
 	if f <= 0 {
-		return 0, errors.New("opengl: creating framebuffer failed: gl.IsFramebuffer returns false")
+		return 0, errors.New("opengl: creating framebuffer failed")
 	}
 	c.bindFramebuffer(framebufferNative(f))
 	gl.FramebufferTexture2DEXT(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, uint32(texture), 0)
@@ -358,6 +353,8 @@ func (c *context) useProgram(p program) {
 }
 
 func (c *context) deleteProgram(p program) {
+	c.locationCache.deleteProgram(p)
+
 	if !gl.IsProgram(uint32(p)) {
 		return
 	}
@@ -482,12 +479,6 @@ func (c *context) maxTextureSizeImpl() int {
 	return int(s)
 }
 
-func (c *context) getShaderPrecisionFormatPrecision() int {
-	// glGetShaderPrecisionFormat is not defined at OpenGL 2.0. Assume that desktop environments always have
-	// enough highp precision.
-	return highpPrecision
-}
-
 func (c *context) flush() {
 	gl.Flush()
 }
@@ -496,7 +487,7 @@ func (c *context) needsRestoring() bool {
 	return false
 }
 
-func (c *context) texSubImage2D(t textureNative, args []*driver.ReplacePixelsArgs) {
+func (c *context) texSubImage2D(t textureNative, args []*graphicsdriver.WritePixelsArgs) {
 	c.bindTexture(t)
 	for _, a := range args {
 		gl.TexSubImage2D(gl.TEXTURE_2D, 0, int32(a.X), int32(a.Y), int32(a.Width), int32(a.Height), gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(a.Pixels))

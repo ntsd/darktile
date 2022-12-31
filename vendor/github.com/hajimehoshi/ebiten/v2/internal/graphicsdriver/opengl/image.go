@@ -15,12 +15,14 @@
 package opengl
 
 import (
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
+	"errors"
+
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 )
 
 type Image struct {
-	id          driver.ImageID
+	id          graphicsdriver.ImageID
 	graphics    *Graphics
 	texture     textureNative
 	stencil     renderbufferNative
@@ -30,7 +32,7 @@ type Image struct {
 	screen      bool
 }
 
-func (i *Image) ID() driver.ImageID {
+func (i *Image) ID() graphicsdriver.ImageID {
 	return i.id
 }
 
@@ -60,13 +62,13 @@ func (i *Image) setViewport() error {
 	return nil
 }
 
-func (i *Image) Pixels() ([]byte, error) {
+func (i *Image) ReadPixels(buf []byte) error {
 	if err := i.ensureFramebuffer(); err != nil {
-		return nil, err
+		return err
 	}
 
-	p := i.graphics.context.framebufferPixels(i.framebuffer, i.width, i.height)
-	return p, nil
+	i.graphics.context.framebufferPixels(buf, i.framebuffer, i.width, i.height)
+	return nil
 }
 
 func (i *Image) framebufferSize() (int, int) {
@@ -118,12 +120,12 @@ func (i *Image) ensureStencilBuffer() error {
 	return nil
 }
 
-func (i *Image) ReplacePixels(args []*driver.ReplacePixelsArgs) {
+func (i *Image) WritePixels(args []*graphicsdriver.WritePixelsArgs) error {
 	if i.screen {
-		panic("opengl: ReplacePixels cannot be called on the screen, that doesn't have a texture")
+		return errors.New("opengl: WritePixels cannot be called on the screen")
 	}
 	if len(args) == 0 {
-		return
+		return nil
 	}
 
 	// glFlush is necessary on Android.
@@ -133,4 +135,5 @@ func (i *Image) ReplacePixels(args []*driver.ReplacePixelsArgs) {
 	}
 	i.graphics.drawCalled = false
 	i.graphics.context.texSubImage2D(i.texture, args)
+	return nil
 }
